@@ -7,125 +7,147 @@
 
   <style>
     :root{
-      /* COLORS */
-      --black: #000000;
-      --blue:  #8CB4FF;
-      --gray:  #D2D5D8;
-      --white: #FFFFFF;
+      --core-black: #000000;
+      --link-blue:  #8CB4FF;
+      --cloud-gray: #D2D5D8;
+      --pure-white: #FFFFFF;
 
-      /* TUNING (seamless) */
-      --topSolid: 22vh;      /* nero pieno all’inizio del gradient */
-      --topFade:  46vh;      /* quanto lentamente “apre” dal nero */
-      --botFadeStart: 52%;   /* quando inizia a schiarire verso white */
-      --botFadeLen:   48%;   /* lunghezza dissolvenza verso white */
+      /* controlli rapidi (se vuoi più “Bending”: alza fade e radiali) */
+      --top-solid: 42vh;       /* quanto “nero pieno” sopra */
+      --bottom-solid: 55vh;    /* quanto “bianco pieno” sotto */
+      --fade-size: 60vh;       /* quanto lunga la transizione (più lungo = più seamless) */
+      --scene-height: 220vh;   /* quanto scroll per vedere tutto */
     }
 
-    html, body{
+    html, body {
       margin: 0;
       height: 100%;
-      background: var(--black);
+      background: var(--pure-white);
     }
 
-    /* solo per test/preview: tre sezioni come bending (dark -> light -> white) */
-    .top {
-      height: 45vh;
-      background: var(--black);
+    /* Pagina lunga per vedere top->gradient->white come reference */
+    body{
+      min-height: var(--scene-height);
+      overflow-x: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
 
-    .mid{
-      position: relative;
-      height: 140vh; /* lungo = transizione “seamless” vera */
-      overflow: hidden;
-      background:
-        /* 1) TOP: nero pieno + dissolvenza lenta (no stacco) */
-        linear-gradient(
-          180deg,
-          rgba(0,0,0,1) 0%,
-          rgba(0,0,0,1) var(--topSolid),
-          rgba(0,0,0,0) calc(var(--topSolid) + var(--topFade))
-        ),
-
-        /* 2) base “light” come bending (ma coi tuoi colori) */
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, var(--blue) 35%, var(--gray) 65%) 0%,
-          color-mix(in srgb, var(--white) 20%, var(--gray) 80%) 30%,
-          color-mix(in srgb, var(--white) 55%, var(--gray) 45%) 70%
-        ),
-
-        /* 3) haze enorme (evita “macchia” centrale) */
-        radial-gradient(
-          140% 120% at 50% 55%,
-          rgba(140,180,255,0.18) 0%,
-          rgba(210,213,216,0.16) 45%,
-          rgba(255,255,255,0.00) 78%
-        ),
-
-        /* 4) BOTTOM: atterraggio verso white lunghissimo */
-        linear-gradient(
-          180deg,
-          rgba(255,255,255,0) 0%,
-          rgba(255,255,255,0) var(--botFadeStart),
-          rgba(255,255,255,1) calc(var(--botFadeStart) + var(--botFadeLen))
-        );
-
-      background-repeat: no-repeat;
-      background-size: cover;
+    /* LAYER UNICO del background: è qui che avviene il “Bending look” */
+    .bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: var(--pure-white);
     }
 
-    /* blur “atmosferico” (stile bending, senza noise brutto) */
-    .mid::before{
+    /*
+      STACK gradient: radial grandi (fuori scala) + base linear.
+      Nota: i radial sono volutamente ENORMI (tipo Bending) così non creano “macchia in mezzo”
+      e rendono la transizione percettivamente morbida.
+    */
+    .bg::before{
       content:"";
       position:absolute;
-      inset:-18%;
-      background: inherit;
-      filter: blur(120px);
-      opacity: 0.22;
-      transform: translateZ(0);
-      pointer-events:none;
-    }
+      inset:-20%;
+      background-image:
+        /* glow principale (link blue -> cloud -> trasparente) */
+        radial-gradient(60% 140% at 50% 38%,
+          rgba(140, 180, 255, 0.78) 0%,
+          rgba(210, 213, 216, 0.62) 46%,
+          rgba(255, 255, 255, 0.00) 72%
+        ),
 
-    /* vignetta soft (aiuta a far sparire qualsiasi edge) */
-    .mid::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      background:
-        radial-gradient(120% 95% at 50% 40%,
+        /* glow laterale sinistro (cloud) */
+        radial-gradient(85% 210% at 15% 62%,
+          rgba(210, 213, 216, 0.55) 0%,
+          rgba(255, 255, 255, 0.00) 66%
+        ),
+
+        /* glow laterale destro (link blue più soft) */
+        radial-gradient(90% 220% at 85% 62%,
+          rgba(140, 180, 255, 0.36) 0%,
+          rgba(255, 255, 255, 0.00) 68%
+        ),
+
+        /* base “campo” (porta verso cloud e poi white senza stacco) */
+        linear-gradient(180deg,
           rgba(0,0,0,0.00) 0%,
-          rgba(0,0,0,0.10) 70%,
-          rgba(0,0,0,0.22) 100%
+          rgba(210,213,216,0.95) 45%,
+          rgba(255,255,255,1.00) 100%
         );
-      opacity: 1;
+
+      transform: translateZ(0);
+      filter: blur(0.0px); /* qui deve stare quasi a 0, altrimenti “macchia” */
     }
 
-    .bottom{
-      height: 60vh;
-      background: var(--white);
+    /*
+      FADER TOP (nero pieno -> trasparente):
+      questo elimina il “taglio” tra sezione nera e gradient.
+    */
+    .bg .fade-top{
+      position:absolute;
+      left:0; right:0;
+      top:0;
+      height: calc(var(--top-solid) + var(--fade-size));
+      background:
+        linear-gradient(180deg,
+          var(--core-black) 0%,
+          var(--core-black) var(--top-solid),
+          rgba(0,0,0,0.75) calc(var(--top-solid) + (var(--fade-size) * 0.30)),
+          rgba(0,0,0,0.00) 100%
+        );
     }
 
-    /* opzionale: se lo embeddi in Wix e vuoi “solo sfondo” senza scroll */
-    body.noscroll{
-      overflow: hidden;
+    /*
+      FADER BOTTOM (trasparente -> bianco pieno):
+      questo elimina il “taglio” tra gradient e sezione bianca sotto.
+    */
+    .bg .fade-bottom{
+      position:absolute;
+      left:0; right:0;
+      bottom:0;
+      height: calc(var(--bottom-solid) + var(--fade-size));
+      background:
+        linear-gradient(0deg,
+          var(--pure-white) 0%,
+          var(--pure-white) var(--bottom-solid),
+          rgba(255,255,255,0.78) calc(var(--bottom-solid) + (var(--fade-size) * 0.35)),
+          rgba(255,255,255,0.00) 100%
+        );
     }
-    .fixedOnly .top, .fixedOnly .bottom{ display:none; }
-    .fixedOnly .mid{
-      height: 100vh;
+
+    /* Contenuto demo (puoi eliminarlo) */
+    .debug {
+      position: relative;
+      z-index: 1;
+      height: var(--scene-height);
     }
+    .cap {
+      position: absolute;
+      left: 24px;
+      font-size: 12px;
+      letter-spacing: .02em;
+      opacity: .7;
+    }
+    .cap.top { top: 18px; color: #fff; }
+    .cap.mid { top: 52vh; color: #000; }
+    .cap.bot { bottom: 18px; color: #000; }
   </style>
 </head>
 
 <body>
-  <div class="top"></div>
-  <div class="mid"></div>
-  <div class="bottom"></div>
+  <!-- Background layer -->
+  <div class="bg" aria-hidden="true">
+    <div class="fade-top"></div>
+    <div class="fade-bottom"></div>
+  </div>
 
-  <!--
-    Se vuoi usare SOLO come BG fisso (iframe in Wix):
-    1) aggiungi class="fixedOnly" al body
-    2) (opzionale) aggiungi anche class="noscroll"
-    Es: <body class="fixedOnly noscroll">
-  -->
+  <!-- solo per farti vedere le zone; puoi cancellare tutto questo blocco -->
+  <div class="debug">
+    <div class="cap top">TOP: CORE BLACK (#000000) + fade seamless</div>
+    <div class="cap mid">MID: gradient field (LINK BLUE + CLOUD GRAY + WHITE)</div>
+    <div class="cap bot">BOTTOM: PURE WHITE (#FFFFFF) + fade seamless</div>
+  </div>
 </body>
 </html>
