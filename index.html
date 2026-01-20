@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AFFLU BG</title>
+  <title>AFFLU BG Seamless</title>
 
   <style>
     :root{
@@ -13,11 +13,14 @@
       --pure-white: #FFFFFF;
 
       /* controlli rapidi */
-      --top-solid-h: 22vh;       /* altezza blocco nero pieno */
-      --bottom-white-h: 26vh;    /* “zona di arrivo” verso white */
-      --diffuse-blur: 90px;      /* diffusione stile bending */
-      --diffuse-opacity: 0.22;   /* 0.16–0.30 */
-      --noise-opacity: 0.06;     /* 0.03–0.08 */
+      --top-black-fade-end: 28vh;     /* quanto “dura” il nero pieno prima di iniziare a far emergere il gradient */
+      --top-black-fade-soft: 18vh;    /* morbidezza del passaggio */
+      --bottom-white-start: 70vh;     /* dove inizia il viaggio verso il bianco */
+      --bottom-white-soft: 30vh;      /* morbidezza verso il bianco */
+
+      --diffuse-blur: 110px;          /* bending-like diffusion */
+      --diffuse-opacity: 0.26;        /* 0.18–0.32 */
+      --noise-opacity: 0.055;         /* 0.03–0.08 */
     }
 
     html, body {
@@ -27,116 +30,91 @@
       background: transparent;
     }
 
-    /* canvas full screen */
     .stage{
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
       pointer-events: none;
+      isolation: isolate;
       background: transparent;
-      isolation: isolate; /* blend più consistente */
     }
 
-    /* LAYER: gradient principale (non lineare) */
+    /*
+      BG = multi-layer gradients come bending:
+      1) “Black cap” (non blocco separato) -> un linear che tiene nero pieno e poi sfuma lentamente
+      2) Glow principale (radial enorme, non lineare) -> LINK BLUE -> CLOUD GRAY -> WHITE
+      3) Haze secondario (radial) -> ammorbidisce il centro e cancella il banding
+      4) “White landing” (non blocco separato) -> linear che porta a WHITE con rampa lunga
+      5) Base coat -> stabilizza
+    */
     .bg{
       position: absolute;
       inset: 0;
 
-      /*
-        Struttura stile Bending:
-        - Radial enorme, punto focale alto (per “glow” controllato)
-        - Un secondo radial per dare profondità (cloud/white)
-        - Base coat (colore uniforme) per stabilizzare
-        - Fade verso white in basso (seamless)
-      */
       background-image:
-        /* glow “Link Blue” principale */
+        /* 1) TOP black cap SEAMLESS (nero pieno che poi “apre” lentamente) */
+        linear-gradient(
+          180deg,
+          rgba(0,0,0,1) 0%,
+          rgba(0,0,0,1) calc(var(--top-black-fade-end) - var(--top-black-fade-soft)),
+          rgba(0,0,0,0) var(--top-black-fade-end)
+        ),
+
+        /* 2) Glow principale (non lineare) */
         radial-gradient(
-          60% 140% at 50% 38%,
-          rgba(140, 180, 255, 0.85) 0%,
-          rgba(210, 213, 216, 0.65) 48%,
-          rgba(255, 255, 255, 0.35) 76%,
+          62% 150% at 50% 40%,
+          rgba(140, 180, 255, 0.90) 0%,
+          rgba(210, 213, 216, 0.72) 45%,
+          rgba(255, 255, 255, 0.38) 75%,
           rgba(255, 255, 255, 0.00) 100%
         ),
 
-        /* haze cloud (ammorbidisce e riempie) */
+        /* 3) Haze cloud per cancellare “stacchi” */
         radial-gradient(
-          85% 120% at 52% 62%,
-          rgba(210, 213, 216, 0.65) 0%,
-          rgba(255, 255, 255, 0.25) 55%,
+          110% 120% at 50% 62%,
+          rgba(210, 213, 216, 0.55) 0%,
+          rgba(255, 255, 255, 0.20) 55%,
           rgba(255, 255, 255, 0.00) 100%
         ),
 
-        /* base coat scuro (stabilità, evita “vuoti”) */
-        linear-gradient(0deg, #0a0a0a, #0a0a0a),
-
-        /* transizione seamless verso PURE WHITE in basso */
+        /* 4) BOTTOM white landing SEAMLESS (rampa lunga come bending) */
         linear-gradient(
           180deg,
           rgba(255,255,255,0.00) 0%,
-          rgba(255,255,255,0.00) calc(100% - var(--bottom-white-h)),
-          rgba(255,255,255,1.00) 100%
-        );
+          rgba(255,255,255,0.00) var(--bottom-white-start),
+          rgba(255,255,255,1.00) calc(var(--bottom-white-start) + var(--bottom-white-soft))
+        ),
+
+        /* 5) Base coat (scurissimo) */
+        linear-gradient(0deg, #070707, #070707);
+
+      background-repeat: no-repeat;
+      background-size: cover;
     }
 
-    /* LAYER: diffusione (stesso bg sfocato, come bending) */
+    /* Diffusione bending-like (stesso BG sfocato) */
     .bg::before{
       content:"";
-      position: absolute;
-      inset: -18%;
+      position:absolute;
+      inset:-22%;
       background: inherit;
       filter: blur(var(--diffuse-blur));
       opacity: var(--diffuse-opacity);
       transform: translateZ(0);
     }
 
-    /* LAYER: noise leggero anti-banding */
+    /* Noise anti-banding */
     .bg::after{
       content:"";
-      position: absolute;
-      inset: 0;
-      opacity: var(--noise-opacity);
-      mix-blend-mode: overlay;
-      pointer-events:none;
-      background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-      background-size: 220px 220px;
-    }
-
-    /*
-      TOP BLOCCO NERO 100% OPACITÀ (come mi hai chiesto)
-      Serve a “tagliare” qualsiasi glow sopra.
-    */
-    .top-solid{
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: var(--top-solid-h);
-      background: var(--core-black);
-      z-index: 5;
-    }
-
-    /*
-      BOTTOM: assicurati che l’ultimo tratto sia proprio white pieno
-      (in caso di overlay/artefatti).
-    */
-    .bottom-solid{
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 12vh;
-      background: var(--pure-white);
-      z-index: 4;
-    }
-
-    /* (opzionale) per evitare “bordo” nei browser */
-    .guard{
       position:absolute;
       inset:0;
-      background: transparent;
+      opacity: var(--noise-opacity);
+      mix-blend-mode: overlay;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      background-size: 240px 240px;
+      pointer-events:none;
     }
   </style>
 </head>
@@ -144,9 +122,6 @@
 <body>
   <div class="stage" aria-hidden="true">
     <div class="bg"></div>
-    <div class="bottom-solid"></div>
-    <div class="top-solid"></div>
-    <div class="guard"></div>
   </div>
 </body>
 </html>
