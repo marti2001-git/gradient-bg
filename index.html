@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AFFLU BG Seamless</title>
+  <title>AFFLU BG (Bending-style)</title>
 
   <style>
     :root{
@@ -12,21 +12,23 @@
       --cloud-gray: #D2D5D8;
       --pure-white: #FFFFFF;
 
-      /* controlli rapidi */
-      --top-black-fade-end: 28vh;     /* quanto “dura” il nero pieno prima di iniziare a far emergere il gradient */
-      --top-black-fade-soft: 18vh;    /* morbidezza del passaggio */
-      --bottom-white-start: 70vh;     /* dove inizia il viaggio verso il bianco */
-      --bottom-white-soft: 30vh;      /* morbidezza verso il bianco */
+      /* TIMING (seamless) */
+      --top-black-solid: 20vh;     /* nero pieno prima che inizi ad aprirsi */
+      --top-black-fade:  30vh;     /* lunghezza dissolvenza nero->trasparente */
 
-      --diffuse-blur: 110px;          /* bending-like diffusion */
-      --diffuse-opacity: 0.26;        /* 0.18–0.32 */
-      --noise-opacity: 0.055;         /* 0.03–0.08 */
+      --bottom-white_start: 62vh;  /* dove inizia davvero a schiarire */
+      --bottom-white_fade:  45vh;  /* quanto è lunga la dissolvenza verso white */
+
+      /* LOOK bending */
+      --diffuse-blur: 140px;
+      --diffuse-opacity: 0.22;
+      --noise-opacity: 0.05;
     }
 
-    html, body {
-      margin: 0;
-      height: 100%;
-      overflow: hidden;
+    html, body{
+      margin:0;
+      height:100%;
+      overflow:hidden;
       background: transparent;
     }
 
@@ -35,93 +37,117 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      pointer-events: none;
-      isolation: isolate;
+      pointer-events:none;
       background: transparent;
+      isolation: isolate;
     }
 
     /*
-      BG = multi-layer gradients come bending:
-      1) “Black cap” (non blocco separato) -> un linear che tiene nero pieno e poi sfuma lentamente
-      2) Glow principale (radial enorme, non lineare) -> LINK BLUE -> CLOUD GRAY -> WHITE
-      3) Haze secondario (radial) -> ammorbidisce il centro e cancella il banding
-      4) “White landing” (non blocco separato) -> linear che porta a WHITE con rampa lunga
-      5) Base coat -> stabilizza
+      Chiave per togliere la “macchia”:
+      - NON un solo radial “spot”
+      - 2 radiali enormi (molto larghi) + haze + base
+      - ramp nero e ramp bianco dentro lo stesso stack
     */
     .bg{
-      position: absolute;
-      inset: 0;
+      position:absolute;
+      inset:0;
 
       background-image:
-        /* 1) TOP black cap SEAMLESS (nero pieno che poi “apre” lentamente) */
+        /* 1) TOP: nero pieno + dissolve (SEAMLESS, niente blocchi separati) */
         linear-gradient(
           180deg,
           rgba(0,0,0,1) 0%,
-          rgba(0,0,0,1) calc(var(--top-black-fade-end) - var(--top-black-fade-soft)),
-          rgba(0,0,0,0) var(--top-black-fade-end)
+          rgba(0,0,0,1) var(--top-black-solid),
+          rgba(0,0,0,0) calc(var(--top-black-solid) + var(--top-black-fade))
         ),
 
-        /* 2) Glow principale (non lineare) */
+        /* 2) “WASH” blu larghissimo (nessun centro duro) */
         radial-gradient(
-          62% 150% at 50% 40%,
-          rgba(140, 180, 255, 0.90) 0%,
-          rgba(210, 213, 216, 0.72) 45%,
-          rgba(255, 255, 255, 0.38) 75%,
-          rgba(255, 255, 255, 0.00) 100%
+          140% 120% at 50% 55%,
+          rgba(140,180,255,0.28) 0%,
+          rgba(140,180,255,0.18) 40%,
+          rgba(140,180,255,0.00) 78%
         ),
 
-        /* 3) Haze cloud per cancellare “stacchi” */
+        /* 3) Cloud haze enorme (riempie e rende atmosferico) */
         radial-gradient(
-          110% 120% at 50% 62%,
-          rgba(210, 213, 216, 0.55) 0%,
-          rgba(255, 255, 255, 0.20) 55%,
-          rgba(255, 255, 255, 0.00) 100%
+          170% 140% at 50% 60%,
+          rgba(210,213,216,0.34) 0%,
+          rgba(210,213,216,0.18) 45%,
+          rgba(210,213,216,0.00) 82%
         ),
 
-        /* 4) BOTTOM white landing SEAMLESS (rampa lunga come bending) */
+        /* 4) Highlight verso il basso (come “nebbia” che porta al white) */
+        radial-gradient(
+          160% 130% at 50% 90%,
+          rgba(255,255,255,0.55) 0%,
+          rgba(255,255,255,0.22) 35%,
+          rgba(255,255,255,0.00) 70%
+        ),
+
+        /* 5) BOTTOM: landing verso white (SEAMLESS lungo) */
         linear-gradient(
           180deg,
           rgba(255,255,255,0.00) 0%,
-          rgba(255,255,255,0.00) var(--bottom-white-start),
-          rgba(255,255,255,1.00) calc(var(--bottom-white-start) + var(--bottom-white-soft))
+          rgba(255,255,255,0.00) var(--bottom-white_start),
+          rgba(255,255,255,1.00) calc(var(--bottom-white_start) + var(--bottom-white_fade))
         ),
 
-        /* 5) Base coat (scurissimo) */
+        /* 6) Base coat (stabilizza, evita buchi) */
         linear-gradient(0deg, #070707, #070707);
 
-      background-repeat: no-repeat;
-      background-size: cover;
+      background-repeat:no-repeat;
+      background-size:cover;
     }
 
-    /* Diffusione bending-like (stesso BG sfocato) */
+    /* Diffusione bending-like: stesso stack, sfocato (ammorbidisce tutto) */
     .bg::before{
       content:"";
       position:absolute;
-      inset:-22%;
+      inset:-24%;
       background: inherit;
       filter: blur(var(--diffuse-blur));
       opacity: var(--diffuse-opacity);
       transform: translateZ(0);
     }
 
-    /* Noise anti-banding */
+    /* Vignetta soft: aiuta a “non vedere” bordi/spot */
     .bg::after{
       content:"";
       position:absolute;
       inset:0;
-      opacity: var(--noise-opacity);
-      mix-blend-mode: overlay;
-      background-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-      background-size: 240px 240px;
       pointer-events:none;
+
+      background-image:
+        radial-gradient(
+          120% 90% at 50% 45%,
+          rgba(0,0,0,0.00) 0%,
+          rgba(0,0,0,0.22) 72%,
+          rgba(0,0,0,0.48) 100%
+        ),
+
+        /* noise anti-banding */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+
+      background-size: cover, 240px 240px;
+      background-repeat: no-repeat, repeat;
+      opacity: 1;
+      mix-blend-mode: normal;
+    }
+
+    /* “solo noise” opacity controllata */
+    .noise-tune{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity: var(--noise-opacity);
     }
   </style>
 </head>
-
 <body>
   <div class="stage" aria-hidden="true">
     <div class="bg"></div>
+    <div class="noise-tune"></div>
   </div>
 </body>
 </html>
